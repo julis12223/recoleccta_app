@@ -5,7 +5,7 @@ header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 $dbHost = '127.0.0.1';
-$dbPort = '3306';
+$dbPort = '59090';
 $dbName = 'recoleccta';
 $dbUser = 'root';
 $dbPass = 'Admin2026'; // Cambia esto si tu servidor usa contraseña para root
