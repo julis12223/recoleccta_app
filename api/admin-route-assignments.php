@@ -9,13 +9,27 @@ $adminEmail = 'admin@recoleccta.com';
 $adminPassword = 'Admin2026!';
 $validRouteIds = ['r-14b', 'r-9a', 'r-5c', 'r-2d'];
 
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $providedAdminEmail = trim($_GET['adminEmail'] ?? '');
-    $providedAdminPassword = trim($_GET['adminPassword'] ?? '');
+function authorizeAdminLegacyOrJwt(array $input = []): void {
+    $token = getBearerToken();
+    if ($token) {
+        $payload = verifyJwtToken($token);
+        if (!$payload || ($payload['role'] ?? '') !== 'admin') {
+            respond(["success" => false, "message" => 'Acceso administrativo no autorizado.'], 403);
+        }
 
-    if ($providedAdminEmail !== $adminEmail || $providedAdminPassword !== $adminPassword) {
+        return;
+    }
+
+    $providedAdminEmail = trim($input['adminEmail'] ?? ($_GET['adminEmail'] ?? ''));
+    $providedAdminPassword = trim($input['adminPassword'] ?? ($_GET['adminPassword'] ?? ''));
+
+    if ($providedAdminEmail !== 'admin@recoleccta.com' || $providedAdminPassword !== 'Admin2026!') {
         respond(["success" => false, "message" => 'Acceso administrativo no autorizado.'], 401);
     }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    authorizeAdminLegacyOrJwt();
 
     try {
         $stmt = $pdo->query('SELECT guardian_user_id, route_id, updated_at FROM guardian_route_assignments ORDER BY guardian_user_id ASC');
@@ -43,15 +57,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
-
-    $providedAdminEmail = trim($input['adminEmail'] ?? '');
-    $providedAdminPassword = trim($input['adminPassword'] ?? '');
     $guardianId = (int) ($input['guardianId'] ?? 0);
     $routeId = trim($input['routeId'] ?? '');
 
-    if ($providedAdminEmail !== $adminEmail || $providedAdminPassword !== $adminPassword) {
-        respond(["success" => false, "message" => 'Acceso administrativo no autorizado.'], 401);
-    }
+    authorizeAdminLegacyOrJwt($input);
 
     if ($guardianId <= 0 || !in_array($routeId, $validRouteIds, true)) {
         badRequest('Datos inválidos para asignación de ruta.');

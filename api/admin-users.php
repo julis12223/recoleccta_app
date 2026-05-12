@@ -9,13 +9,27 @@ $adminEmail = 'admin@recoleccta.com';
 $adminPassword = 'Admin2026!';
 $validRoles = ['admin', 'guardian', 'user'];
 
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $providedAdminEmail = trim($_GET['adminEmail'] ?? '');
-    $providedAdminPassword = trim($_GET['adminPassword'] ?? '');
+function authorizeAdminLegacyOrJwt(array $input = []): void {
+    $token = getBearerToken();
+    if ($token) {
+        $payload = verifyJwtToken($token);
+        if (!$payload || ($payload['role'] ?? '') !== 'admin') {
+            respond(["success" => false, "message" => 'Acceso administrativo no autorizado.'], 403);
+        }
 
-    if ($providedAdminEmail !== $adminEmail || $providedAdminPassword !== $adminPassword) {
+        return;
+    }
+
+    $providedAdminEmail = trim($input['adminEmail'] ?? ($_GET['adminEmail'] ?? ''));
+    $providedAdminPassword = trim($input['adminPassword'] ?? ($_GET['adminPassword'] ?? ''));
+
+    if ($providedAdminEmail !== 'admin@recoleccta.com' || $providedAdminPassword !== 'Admin2026!') {
         respond(["success" => false, "message" => 'Acceso administrativo no autorizado.'], 401);
     }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    authorizeAdminLegacyOrJwt();
 
     try {
         $stmt = $pdo->query('SELECT id, email, role, created_at FROM users ORDER BY id DESC');
@@ -42,15 +56,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
-
-    $providedAdminEmail = trim($input['adminEmail'] ?? '');
-    $providedAdminPassword = trim($input['adminPassword'] ?? '');
     $userId = (int) ($input['userId'] ?? 0);
     $role = trim($input['role'] ?? '');
 
-    if ($providedAdminEmail !== $adminEmail || $providedAdminPassword !== $adminPassword) {
-        respond(["success" => false, "message" => 'Acceso administrativo no autorizado.'], 401);
-    }
+    authorizeAdminLegacyOrJwt($input);
 
     if ($userId <= 0 || !in_array($role, $validRoles, true)) {
         badRequest('Datos inválidos para actualizar el rol.');

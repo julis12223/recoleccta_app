@@ -101,6 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             "message" => 'Login con Google exitoso.',
             "data" => [
                 "user" => $user,
+                "token" => createJwtToken($user),
             ],
         ]);
     } catch (Exception $e) {

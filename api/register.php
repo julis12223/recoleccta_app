@@ -1,16 +1,21 @@
 <?php
 require_once __DIR__ . '/config.php';
 
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    respond(["success" => true, "message" => 'Preflight OK'], 200);
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respond(["success" => false, "message" => 'Método no permitido'], 405);
 }
 
 $input = json_decode(file_get_contents('php://input'), true);
-$email = filter_var(trim($input['email'] ?? ''), FILTER_VALIDATE_EMAIL);
+$rawEmail = strtolower(trim($input['email'] ?? ''));
+$email = filter_var($rawEmail, FILTER_VALIDATE_EMAIL);
 $password = trim($input['password'] ?? '');
 $role = trim($input['role'] ?? 'user');
 
-$validRoles = ['admin', 'guardian', 'user'];
+$validRoles = ['guardian', 'user'];
 if (!in_array($role, $validRoles, true)) {
     $role = 'user';
 }
@@ -30,15 +35,20 @@ try {
     $stmt->execute([$email, $passwordHash, $role]);
     $userId = (int) $pdo->lastInsertId();
 
+    $user = [
+        'uid' => $userId,
+        'email' => $email,
+        'role' => $role,
+        'displayName' => null,
+        'photoURL' => null,
+    ];
+
     respond([
         "success" => true,
         "message" => 'Registro exitoso.',
         "data" => [
-            "user" => [
-                "uid" => $userId,
-                "email" => $email,
-                "role" => $role,
-            ],
+            "user" => $user,
+            "token" => createJwtToken($user),
         ],
     ]);
 } catch (PDOException $e) {
